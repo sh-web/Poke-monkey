@@ -1,35 +1,70 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+interface Pokemon {
+  name: string;
+  url: string;
+}
+interface Details {
+  name: string;
+  id: number;
+  img: string;
+}
+function fetchHome() {
+  const [pokemons, setPokemons] = useState<Pokemon[]>([]);
+  const [details, setDetails] = useState<Details[]>([]);
+  const [urls, setUrls] = useState<string[]>([]);
+  let limit = 20;
+  const [offset, setOffset] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  let response = {};
+
+  useEffect(() => {
+    const fetchHomePokemon = async () => {
+      const res = await fetch(
+        `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
+      );
+      const data = await res.json();
+      console.log(data.results);
+      setPokemons(data.results);
+    };
+    fetchHomePokemon();
+  }, [offset]);
+  useEffect(() => {
+    const urlsArray = pokemons.map((pokemon) => pokemon.url);
+    setUrls(urlsArray);
+    const fetchDetails = async () => {
+      const detailsData: Details[] = await Promise.all(
+        urlsArray.map(async (url) => {
+          const res = await fetch(url);
+          const data = await res.json();
+          console.log(data);
+          return {
+            name: data.name,
+            id: data.id,
+            img: data.sprites.front_default,
+          };
+        })
+      );
+
+      setDetails(detailsData);
+    };
+    if (urls.length > 0) {
+      fetchDetails();
+    }
+  }, [pokemons]);
 
   return (
     <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <h1>モンスターブック</h1>
+      {details.map((detail) => (
+        <div className="cardstyle" key={detail.id}>
+          <img src={detail.img} />
+          <p>
+            図鑑No.{detail.id}:{detail.name}
+          </p>
+        </div>
+      ))}
     </>
-  )
+  );
 }
-
-export default App
+export default fetchHome;

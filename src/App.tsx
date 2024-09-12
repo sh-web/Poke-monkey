@@ -25,10 +25,20 @@ type Filtering = {
 function fetchHome() {
   const { register, handleSubmit } = useForm<Filtering>();
   const onSubmit = (data: Filtering) => {
+    setFiltered_details(
+      details.filter(
+        (detail) =>
+          (data.name === "" || detail.name.includes(data.name)) &&
+          (String(data.id) === "" || detail.id === Number(data.id)) &&
+          (data.type === "" || data.type === detail.types[0].type.name)
+      )
+    );
+    console.log(filtered_details);
     console.log(data);
   };
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [details, setDetails] = useState<Details[]>([]);
+  const [filtered_details, setFiltered_details] = useState<Details[]>([]);
   const [urls, setUrls] = useState<string[]>([]);
   let limit = 151;
   const [offset, setOffset] = useState(0);
@@ -69,7 +79,14 @@ function fetchHome() {
     if (urls.length > 0) {
       fetchDetails();
     }
+    // if (details) {
+    //   setFiltered_details(details);
+    //   console.log(filtered_details);
+    // }
   }, [pokemons]);
+  useEffect(() => {
+    setFiltered_details(details);
+  }, [details]);
 
   return (
     <>
@@ -86,12 +103,12 @@ function fetchHome() {
         <button type="submit">フィルター</button>
       </form>
 
-      {details.map((detail) => (
+      {filtered_details.map((detail) => (
         <div className="cardstyle" key={detail.id}>
-          <img src={detail.img} />
           <p>
             図鑑No.{detail.id}:{detail.name}
           </p>
+          <img src={detail.img} />
           {detail.types.length === 1 && (
             <p>タイプ:{detail.types[0].type.name}</p>
           )}

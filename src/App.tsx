@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useForm, SubmitHandler } from "react-hook-form";
+import "./App.css";
 
 interface Pokemon {
   name: string;
@@ -99,26 +100,50 @@ function fetchHome() {
         <label>図鑑No.</label>
         <input id="id" {...register("id")} />
         <label>タイプ</label>
-        <input id="type" {...register("type")} />
+        <select id="type" {...register("type")}>
+          <option value="">タイプを選択してください</option>
+          <option value="normal">ノーマル</option>
+          <option value="fire">ほのお</option>
+          <option value="water">みず</option>
+          <option value="electric">でんき</option>
+          <option value="grass">くさ</option>
+          <option value="ice">こおり</option>
+          <option value="fighting">かくとう</option>
+          <option value="poison">どく</option>
+          <option value="ground">じめん</option>
+          <option value="flying">ひこう</option>
+          <option value="psychic">エスパー</option>
+          <option value="bug">むし</option>
+          <option value="rock">いわ</option>
+          <option value="ghost">ゴースト</option>
+          <option value="dragon">ドラゴン</option>
+          <option value="dark">あく</option>
+          <option value="steel">はがね</option>
+          <option value="fairy">フェアリー</option>
+        </select>
         <button type="submit">フィルター</button>
       </form>
-
-      {filtered_details.map((detail) => (
-        <div className="cardstyle" key={detail.id}>
-          <p>
-            図鑑No.{detail.id}:{detail.name}
-          </p>
-          <img src={detail.img} />
-          {detail.types.length === 1 && (
-            <p>タイプ:{detail.types[0].type.name}</p>
-          )}
-          {detail.types.length === 2 && (
-            <p>
-              タイプ:{detail.types[0].type.name}・{detail.types[1].type.name}
-            </p>
-          )}
-        </div>
-      ))}
+      <div className="cardcontainer">
+        {filtered_details.length === 0
+          ? "条件に該当するポケモンが見つかりませんでした"
+          : filtered_details.map((detail) => (
+              <div className="cardstyle" key={detail.id}>
+                <p>
+                  図鑑No.{detail.id}:{detail.name}
+                </p>
+                <img src={detail.img} />
+                {detail.types.length === 1 && (
+                  <p>タイプ:{detail.types[0].type.name}</p>
+                )}
+                {detail.types.length === 2 && (
+                  <p>
+                    タイプ:{detail.types[0].type.name}・
+                    {detail.types[1].type.name}
+                  </p>
+                )}
+              </div>
+            ))}
+      </div>
     </>
   );
 }

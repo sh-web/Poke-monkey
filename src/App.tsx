@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useState, useEffect, useMemo } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import "./App.css";
 
 interface Pokemon {
@@ -23,49 +25,61 @@ type Filtering = {
   name: string;
   type: string;
 };
-function fetchHome() {
-  const { register, handleSubmit } = useForm<Filtering>();
+function FetchHome() {
+  const schema = z.object({
+    name: z.string().min(1, "名前は必須です").or(z.literal("")),
+    id: z
+      .number()
+      .min(1, "図鑑No.は1以上である必要があります")
+      .or(z.number().max(151, "図鑑No.は151以下である必要があります"))
+      .or(z.literal("")),
+    type: z.string().min(1, "タイプは必須ではないです").or(z.literal("")),
+  });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Filtering>({ resolver: zodResolver(schema) });
+
   const onSubmit = (data: Filtering) => {
-    setFiltered_details(
+    setFilteredDetails(
       details.filter(
         (detail) =>
           (data.name === "" || detail.name.includes(data.name)) &&
-          (String(data.id) === "" || detail.id === Number(data.id)) &&
+          (String(data.id) === "" || detail.id === data.id) &&
           (data.type === "" || data.type === detail.types[0].type.name)
       )
     );
-    console.log(filtered_details);
+    console.log(filteredDetails);
     console.log(data);
   };
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [details, setDetails] = useState<Details[]>([]);
-  const [filtered_details, setFiltered_details] = useState<Details[]>([]);
-  const [urls, setUrls] = useState<string[]>([]);
-  let limit = 151;
-  const [offset, setOffset] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
-  let response = {};
+  const [filteredDetails, setFilteredDetails] = useState<Details[]>([]);
+  const limit = 151;
+  const urls = useMemo(() => {
+    return pokemons.map((pokemon) => pokemon.url);
+  }, [pokemons]);
 
   useEffect(() => {
     const fetchHomePokemon = async () => {
       const res = await fetch(
-        `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`
+        `https://pokeapi.co/api/v2/pokemon?limit=${limit}`
       );
       const data = await res.json();
       console.log(data.results);
       setPokemons(data.results);
     };
     fetchHomePokemon();
-  }, [offset]);
+  }, []);
   useEffect(() => {
-    const urlsArray = pokemons.map((pokemon) => pokemon.url);
-    setUrls(urlsArray);
     const fetchDetails = async () => {
       const detailsData: Details[] = await Promise.all(
-        urlsArray.map(async (url) => {
+        urls.map(async (url) => {
           const res = await fetch(url);
           const data = await res.json();
           console.log(data);
+
           return {
             name: data.name,
             id: data.id,
@@ -80,13 +94,9 @@ function fetchHome() {
     if (urls.length > 0) {
       fetchDetails();
     }
-    // if (details) {
-    //   setFiltered_details(details);
-    //   console.log(filtered_details);
-    // }
-  }, [pokemons]);
+  }, [urls]);
   useEffect(() => {
-    setFiltered_details(details);
+    setFilteredDetails(details);
   }, [details]);
 
   return (
@@ -98,7 +108,8 @@ function fetchHome() {
         <input id="name" {...register("name")} />
 
         <label>図鑑No.</label>
-        <input id="id" {...register("id")} />
+        <input id="id" type="number" {...register("id")} />
+        {errors.name && <span>{errors.name.message}</span>}
         <label>タイプ</label>
         <select id="type" {...register("type")}>
           <option value="">タイプを選択してください</option>
@@ -124,9 +135,9 @@ function fetchHome() {
         <button type="submit">フィルター</button>
       </form>
       <div className="cardcontainer">
-        {filtered_details.length === 0
+        {filteredDetails.length === 0
           ? "条件に該当するポケモンが見つかりませんでした"
-          : filtered_details.map((detail) => (
+          : filteredDetails.map((detail) => (
               <div className="cardstyle" key={detail.id}>
                 <p>
                   図鑑No.{detail.id}:{detail.name}
@@ -147,4 +158,4 @@ function fetchHome() {
     </>
   );
 }
-export default fetchHome;
+export default FetchHome;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +8,7 @@ interface Pokemon {
   name: string;
   url: string;
 }
-interface Details {
+interface Detail {
   name: string;
   id: number;
   img: string;
@@ -19,6 +19,10 @@ interface Details {
       url: string;
     };
   }[];
+  species: {
+    name: string;
+    url: string;
+  };
 }
 type Filtering = {
   id: number;
@@ -27,12 +31,19 @@ type Filtering = {
 };
 function FetchHome() {
   const schema = z.object({
-    name: z.string().min(1, "名前は必須です").or(z.literal("")),
-    id: z
-      .number()
-      .min(1, "図鑑No.は1以上である必要があります")
-      .or(z.number().max(151, "図鑑No.は151以下である必要があります"))
-      .or(z.literal("")),
+    name: z.union([
+      z
+        .string()
+        .regex(/^[\u30A0-\u30FF]+$/, "名前はカタカナのみで入力してください"),
+      z.literal(""),
+    ]),
+    id: z.union([
+      z
+        .number()
+        .min(1, "図鑑No.は1以上である必要があります")
+        .max(151, "図鑑No.は151以下である必要があります"),
+      z.nan(),
+    ]),
     type: z.string().min(1, "タイプは必須ではないです").or(z.literal("")),
   });
   const {
@@ -43,73 +54,86 @@ function FetchHome() {
 
   const onSubmit = (data: Filtering) => {
     setFilteredDetails(
-      details.filter(
+      unFilteredDetails.filter(
         (detail) =>
           (data.name === "" || detail.name.includes(data.name)) &&
-          (String(data.id) === "" || detail.id === data.id) &&
+          (isNaN(data.id) || detail.id === data.id) &&
           (data.type === "" || data.type === detail.types[0].type.name)
       )
     );
     console.log(filteredDetails);
     console.log(data);
   };
-  const [pokemons, setPokemons] = useState<Pokemon[]>([]);
-  const [details, setDetails] = useState<Details[]>([]);
-  const [filteredDetails, setFilteredDetails] = useState<Details[]>([]);
+  const [filteredDetails, setFilteredDetails] = useState<Detail[]>([]);
+  const [unFilteredDetails, setUnFilteredDetails] = useState<Detail[]>([]);
   const limit = 151;
-  const urls = useMemo(() => {
-    return pokemons.map((pokemon) => pokemon.url);
-  }, [pokemons]);
 
-  useEffect(() => {
-    const fetchHomePokemon = async () => {
-      const res = await fetch(
-        `https://pokeapi.co/api/v2/pokemon?limit=${limit}`
-      );
-      const data = await res.json();
-      console.log(data.results);
-      setPokemons(data.results);
-    };
-    fetchHomePokemon();
-  }, []);
-  useEffect(() => {
-    const fetchDetails = async () => {
-      const detailsData: Details[] = await Promise.all(
-        urls.map(async (url) => {
-          const res = await fetch(url);
-          const data = await res.json();
-          console.log(data);
+  const fetchHomePokemon = async (): Promise<Pokemon[]> => {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${limit}`);
+    const data = await res.json();
+    console.log(data.results);
+    return data.results;
+  };
+  const fetchDetails = async (urls: string[]) => {
+    const detailsData: Detail[] = await Promise.all(
+      urls.map(async (url) => {
+        const res = await fetch(url);
+        const data = await res.json();
+        console.log(data);
 
-          return {
-            name: data.name,
-            id: data.id,
-            img: data.sprites.front_default,
-            types: data.types,
-          };
-        })
-      );
+        return {
+          name: data.name,
+          id: data.id,
+          img: data.sprites.front_default,
+          types: data.types,
+          species: data.species,
+        };
+      })
+    );
+    return detailsData;
+  };
+  const fetchJaName = async (details: Detail[]) => {
+    const jaName = await Promise.all(
+      details.map(async (detail) => {
+        const res = await fetch(detail.species.url);
+        const data = await res.json();
+        console.log(data);
+        const janame = data.names.find(
+          (name: { language: { name: string } }) => name.language.name === "ja"
+        ).name;
 
-      setDetails(detailsData);
-    };
-    if (urls.length > 0) {
-      fetchDetails();
-    }
-  }, [urls]);
-  useEffect(() => {
+        return janame;
+      })
+    );
+    return jaName;
+  };
+  const fetchAll = async () => {
+    const pokemons = await fetchHomePokemon();
+    const url = pokemons.map((pokemon) => pokemon.url);
+    const details = await fetchDetails(url);
+    const jaName = await fetchJaName(details);
+    details.map((detail) => (detail.name = jaName[detail.id - 1]));
     setFilteredDetails(details);
-  }, [details]);
+    setUnFilteredDetails(details);
+  };
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
   return (
     <>
       <h1>モンスターブック</h1>
       <form onSubmit={handleSubmit(onSubmit)}>
         <label>ポケモン名</label>
-
         <input id="name" {...register("name")} />
-
-        <label>図鑑No.</label>
-        <input id="id" type="number" {...register("id")} />
         {errors.name && <span>{errors.name.message}</span>}
+        <label>図鑑No.</label>
+        <input
+          id="id"
+          type="number"
+          {...register("id", { valueAsNumber: true })}
+        />
+        {errors.id && <span>{errors.id.message}</span>}
         <label>タイプ</label>
         <select id="type" {...register("type")}>
           <option value="">タイプを選択してください</option>
